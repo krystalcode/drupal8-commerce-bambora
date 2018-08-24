@@ -1,0 +1,3 @@
+services:
+  commerce_bambora.api_service:
+    class: Drupal\commerce_bambora\ApiService

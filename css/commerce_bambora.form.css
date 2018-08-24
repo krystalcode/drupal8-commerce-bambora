@@ -1,0 +1,32 @@
+/**
+ * @file
+ * Bambora payment form styles for the Commerce Bambora module.
+ */
+
+/*
+ * Add drupal core form elements styling to the Bambora payment form.
+ */
+.bambora-form .form-text {
+  border: 1px solid #ccc;
+  color: #3b3b3b;
+  font-size: 0.929em;
+  box-sizing: border-box;
+  margin: 2px 0;
+  padding: 4px;
+}
+.bambora-form .error {
+  background-color: hsl(15, 75%, 97%);
+  border-color: #e62600;
+  border-width: 1px;
+  box-shadow: 0 5px 5px -5px #b8b8b8 inset;
+  color: #a51b00;
+}
+.bambora-form #card-number {
+  width: 12em;
+}
+.bambora-form #card-expiry {
+  width: 5em;
+}
+.bambora-form #card-cvv {
+  width: 4em;
+}

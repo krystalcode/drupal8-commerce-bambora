@@ -1,0 +1,22 @@
+bambora:
+  remote: https://libs.na.bambora.com/customcheckout/1/customcheckout.js
+  version: 1
+  license:
+    name: MIT
+    gpl-compatible: true
+  js:
+    "https://libs.na.bambora.com/customcheckout/1/customcheckout.js": { type: external, minified: true }
+
+form:
+  version: VERSION
+  css:
+    theme:
+      css/commerce_bambora.form.css: {}
+  js:
+    js/commerce_bambora.form.js: {}
+  dependencies:
+    - classy/messages
+    - core/jquery
+    - core/drupal
+    - core/jquery.once
+    - commerce_bambora/bambora
