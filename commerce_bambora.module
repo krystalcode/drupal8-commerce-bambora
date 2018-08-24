@@ -1,0 +1,37 @@
+<?php
+
+/**
+ * @file
+ * Provides Commerce integration with the Bambora Payment Gateway.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Url;
+
+/**
+ * Implements hook_help().
+ */
+function commerce_bambora_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    case 'help.page.commerce_bambora':
+      $output = '';
+      $output .= '<h2>' . t('About') . '</h2>';
+      $output .= '<p>' . t('Provides Commerce integration with the Bambora Payment Gateway.') . '</p>';
+      $output .= '<h3>' . t('Features') . '</h3>';
+      $output .= '<ul>';
+      $output .= '<li>' . t(
+        '<strong>Custom Checkout Integration</strong>
+          - On-site payment gateway. Serves card input fields from Bambora’s
+          domain, minimizing the scope of PCI compliance.
+          <br> For more info, see the README.txt file.
+          Configure <a href=":configuration_link">here</a>.', [
+              ':configuration_link' => Url::fromUri(
+                'internal:/admin/commerce/config/payment-gateways/manage/bambora'
+              )->toString()
+            ]
+        ) .
+        '</li>';
+      $output .= '</ul>';
+      return $output;
+  }
+}
