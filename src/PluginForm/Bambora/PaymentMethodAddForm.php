@@ -25,13 +25,6 @@ class PaymentMethodAddForm extends BasePaymentMethodAddForm {
       ]
     ];
 
-    $element['bambora_customer_email'] = [
-      '#type' => 'hidden',
-      '#attributes' => [
-        'id' => 'bambora_customer_email'
-      ]
-    ];
-
     $element['card_number'] = [
       '#type' => 'item',
       '#title' => t('Card number'),
