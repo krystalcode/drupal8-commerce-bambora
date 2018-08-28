@@ -27,7 +27,7 @@
     },
     "extra": {
         "patches": {
-            "drupal/commerce_bambora" : {
+            "drupal/commerce" : {
                 "Optional fields for credit card method": "https://www.drupal.org/files/issues/2018-08-28/commerce-optional-payment-method-fields-2995715-2.patch"
             }
         }
