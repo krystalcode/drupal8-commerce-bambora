@@ -19,7 +19,6 @@ use Drupal\commerce_price\RounderInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Routing\CurrentRouteMatch;
 
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Beanstream\Exception;
@@ -65,13 +64,6 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
   protected $apiService;
 
   /**
-   * The current order.
-   *
-   * @var \Drupal\commerce_order\Entity\OrderInterface
-   */
-  protected $order;
-
-  /**
    * {@inheritdoc}
    */
   public function __construct(
@@ -83,8 +75,7 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
     PaymentMethodTypeManager $payment_method_type_manager,
     TimeInterface $time,
     RounderInterface $rounder,
-    ApiService $api_service,
-    CurrentRouteMatch $current_route_match
+    ApiService $api_service
   ) {
     parent::__construct(
       $configuration,
@@ -98,7 +89,6 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
 
     $this->rounder = $rounder;
     $this->apiService = $api_service;
-    $this->order = $current_route_match->getParameter('commerce_order');
   }
 
   /**
@@ -118,8 +108,7 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
       $container->get('plugin.manager.commerce_payment_method_type'),
       $container->get('datetime.time'),
       $container->get('commerce_price.rounder'),
-      $container->get('commerce_bambora.api_service'),
-      $container->get('current_route_match')
+      $container->get('commerce_bambora.api_service')
     );
   }
 
@@ -581,27 +570,6 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
       catch (Exception $e) {
         throw new HardDeclineException('Unable to verify the credit card: ' . $e->getMessage());
       }
-    }
-    // For anonymous users, we create a payment method using the legato token
-    // payment way.
-    else {
-      $payments_api = $this->apiService->payments($payment_method->getPaymentGateway());
-      $order = $this->order;
-
-      // TODO: At this point shipping costs are not included in the order total
-      // price. We need to figure out to do that.
-      $legato_payment_data = [
-        'order_number' => $order->getOrderNumber(),
-        'amount' => $order->getTotalPrice()->getNumber(),
-        'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
-      ];
-      $result = $payments_api->makeLegatoTokenPayment(
-        $payment_details['bambora_token'],
-        $legato_payment_data,
-        FALSE
-      );
-
-      return $result;
     }
   }
 
