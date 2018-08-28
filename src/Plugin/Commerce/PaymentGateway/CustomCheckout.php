@@ -221,12 +221,27 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
         throw new HardDeclineException('Could not charge the payment method. Message: ' . $e->getMessage());
       }
     }
-    // Else if we have an anonymous user, we already did an auth payment via the
-    // legato token, so we don't need to do anything here.
+    // Else if we have an anonymous user we issue a legato token payment.
     else {
-      $remote_id = $payment_method->getRemoteId();
-    }
+      $payments_api = $this->apiService->payments($payment_method->getPaymentGateway());
 
+      /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
+      $address = $payment->getPaymentMethod()->getBillingProfile()->get('address')->first();
+
+      $legato_payment_data = [
+        'order_number' => $payment->getOrderId(),
+        'amount' => $this->rounder->round($payment->getAmount())->getNumber(),
+        'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
+      ];
+
+      $result = $payments_api->makeLegatoTokenPayment(
+        $payment_method->getRemoteId(),
+        $legato_payment_data,
+        $capture
+      );
+
+      $remote_id = $result['id'];
+    }
 
     $next_state = $capture ? 'completed' : 'authorization';
     if (!$capture) {
@@ -344,13 +359,25 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
       }
     }
 
+    $owner = $payment_method->getOwner();
+
+    // Create the payment method for anonymous users. It simply stores the token
+    // as the method's remote ID since there is no API currently that allows
+    // getting the card details from the token.
+    if (!$owner || !$owner->isAuthenticated()) {
+      $this->doCreatePaymentMethodForAnonymousUser(
+        $payment_method,
+        $payment_details
+      );
+      return;
+    }
+
     // Create the actual payment method depending on new/existing customer.
     $remote_payment_method = $this->doCreatePaymentMethod(
       $payment_method,
       $payment_details
     );
 
-    $owner = $payment_method->getOwner();
     // If the user is authenticated, we save the most recently created card ID
     // as the remote ID.
     if ($owner && $owner->isAuthenticated()) {
@@ -369,15 +396,6 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
       $payment_method->setExpiresTime($expires);
 
       $remote_id = $card['card_id'];
-    }
-    // Else, for anonymous users, we save the transaction ID as the remote ID.
-    else {
-      $card = $remote_payment_method['card'];
-
-      $payment_method->card_type = $this->mapCreditCardType($card['card_type']);
-      $payment_method->card_number = $card['last_four'];
-
-      $remote_id = $remote_payment_method['id'];
     }
 
     $payment_method->setRemoteId($remote_id);
@@ -585,6 +603,22 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
 
       return $result;
     }
+  }
+
+  /**
+   * Creates the payment method for an anonymous user.
+   *
+   * @param \Drupal\commerce_payment\Entity\PaymentMethodInterface $payment_method
+   *   The payment method.
+   * @param array $payment_details
+   *   The gateway-specific payment details.
+   */
+  protected function doCreatePaymentMethodForAnonymousUser(
+    PaymentMethodInterface $payment_method,
+    array $payment_details
+  ) {
+    $payment_method->setRemoteId($payment_details['bambora_token']);
+    $payment_method->save();
   }
 
   /**

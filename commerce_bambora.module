@@ -5,6 +5,8 @@
  * Provides Commerce integration with the Bambora Payment Gateway.
  */
 
+use Drupal\commerce_checkout\Plugin\Commerce\CheckoutFlow\CheckoutFlowWithPanesBase;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
 
@@ -33,5 +35,23 @@ function commerce_bambora_help($route_name, RouteMatchInterface $route_match) {
         '</li>';
       $output .= '</ul>';
       return $output;
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_bambora_form_alter(
+  array &$form,
+  FormStateInterface $form_state,
+  $form_id
+) {
+  if (!($form_state->getFormObject() instanceof CheckoutFlowWithPanesBase)) {
+    return;
+  }
+
+  $options = &$form['payment_information']['payment_method']['#options'];
+  if (!empty($options['new--credit_card--bambora_custom_checkout'])) {
+    $options['new--credit_card--bambora_custom_checkout']= t('New credit card');
   }
 }
