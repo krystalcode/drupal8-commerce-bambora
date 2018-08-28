@@ -223,11 +223,16 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
         'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
       ];
 
-      $result = $payments_api->makeLegatoTokenPayment(
-        $payment_method->getRemoteId(),
-        $legato_payment_data,
-        $capture
-      );
+      try {
+        $result = $payments_api->makeLegatoTokenPayment(
+          $payment_method->getRemoteId(),
+          $legato_payment_data,
+          $capture
+        );
+      }
+      catch (Exception $e) {
+        throw new HardDeclineException('Could not charge the payment method. Message: ' . $e->getMessage());
+      }
 
       $remote_id = $result['id'];
     }
