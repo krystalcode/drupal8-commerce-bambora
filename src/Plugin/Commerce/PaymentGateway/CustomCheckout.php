@@ -231,7 +231,17 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
         );
       }
       catch (Exception $e) {
-        throw new HardDeclineException('Could not charge the payment method. Message: ' . $e->getMessage());
+        throw new HardDeclineException(
+          sprintf('Could not charge the payment method. Message: "%s"', $e->getMessage()),
+          0,
+          NULL,
+          $this->t(
+            'We encountered an error processing your payment method. We use a
+             secure, single-use authorization that is temporary and it might
+             have already expired. Please try adding your payment details again
+             using the "New credit card" option.'
+          )
+        );
       }
 
       $remote_id = $result['id'];
