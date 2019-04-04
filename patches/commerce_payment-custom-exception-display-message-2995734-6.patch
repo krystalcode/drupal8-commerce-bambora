@@ -1,7 +1,7 @@
-diff --git a/modules/payment/src/Exception/DeclineException.php b/modules/payment/src/Exception/DeclineException.php
+diff --git modules/payment/src/Exception/DeclineException.php modules/payment/src/Exception/DeclineException.php
 index 80c585d6..4e42009f 100644
---- a/modules/payment/src/Exception/DeclineException.php
-+++ b/modules/payment/src/Exception/DeclineException.php
+--- modules/payment/src/Exception/DeclineException.php
++++ modules/payment/src/Exception/DeclineException.php
 @@ -14,4 +14,28 @@ namespace Drupal\commerce_payment\Exception;
   * @see \Drupal\commerce_payment\Exception\HardDeclineException
   * @see \Drupal\commerce_payment\Exception\SoftDeclineException
@@ -32,10 +32,10 @@ index 80c585d6..4e42009f 100644
 +  }
 +
 +}
-diff --git a/modules/payment/src/Exception/PaymentGatewayException.php b/modules/payment/src/Exception/PaymentGatewayException.php
+diff --git modules/payment/src/Exception/PaymentGatewayException.php modules/payment/src/Exception/PaymentGatewayException.php
 index 9c015cce..0a417e58 100644
---- a/modules/payment/src/Exception/PaymentGatewayException.php
-+++ b/modules/payment/src/Exception/PaymentGatewayException.php
+--- modules/payment/src/Exception/PaymentGatewayException.php
++++ modules/payment/src/Exception/PaymentGatewayException.php
 @@ -2,7 +2,54 @@
  
  namespace Drupal\commerce_payment\Exception;
@@ -92,10 +92,10 @@ index 9c015cce..0a417e58 100644
 +  }
 +
 +}
-diff --git a/modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php b/modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
+diff --git modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
 index 8333e564..113697f1 100644
---- a/modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
-+++ b/modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
+--- modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
++++ modules/payment/src/Plugin/Commerce/CheckoutPane/PaymentProcess.php
 @@ -174,13 +174,13 @@ class PaymentProcess extends CheckoutPaneBase {
          $this->checkoutFlow->redirectToStep($next_step_id);
        }
