@@ -29,7 +29,7 @@
         "patches": {
             "drupal/commerce" : {
                 "Optional fields for credit card method": "https://www.drupal.org/files/issues/2018-08-28/commerce-optional-payment-method-fields-2995715-2.patch",
-                "Custom exception display messages": "patches/commerce_payment-custom-exception-display-message-2995734-6.txt"
+                "Custom exception display messages": "https://www.drupal.org/files/issues/2019-04-11/commerce_payment-custom-exception-display-message-2995734-6.patch"
             }
         }
     }
