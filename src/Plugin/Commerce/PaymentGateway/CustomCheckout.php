@@ -3,6 +3,7 @@
 namespace Drupal\commerce_bambora\Plugin\Commerce\PaymentGateway;
 
 use Drupal\commerce_bambora\ApiService;
+use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;
@@ -187,45 +188,71 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
     if ($owner && $owner->isAuthenticated()) {
       $customer_id = $this->getRemoteCustomerId($owner);
       $remote_id = $payment_method->getRemoteId();
+
+      try {
+        // Authorize the payment.
+        $profile_payment_data = [
+          'order_number' => $payment->getOrderId(),
+          'amount' => $this->rounder->round($payment->getAmount())->getNumber(),
+        ];
+
+        $result = $payments_api
+          ->makeProfilePayment(
+            $customer_id,
+            $remote_id,
+            $profile_payment_data,
+            $capture
+          );
+
+        $remote_id = $result['id'];
+      }
+      catch (Exception $e) {
+        throw new HardDeclineException('Could not charge the payment method. Message: ' . $e->getMessage());
+      }
     }
-    // Else if we have an anonymous user.
+    // Else if we have an anonymous user we issue a legato token payment.
     else {
-      $customer_id = $payment_method->getRemoteId();
+      $payments_api = $this->apiService->payments($payment_method->getPaymentGateway());
 
-      // Retrieve the customer's cards and use the last added card to charge.
-      $cards = $this->apiService->profiles($payment->getPaymentGateway())
-        ->getCards($customer_id);
+      /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
+      $address = $payment->getPaymentMethod()->getBillingProfile()->get('address')->first();
 
-      $card = end($cards['card']);
-      $remote_id = $card['card_id'];
-    }
-
-    try {
-      // Authorize the payment.
-      $profile_payment_data = [
+      $legato_payment_data = [
         'order_number' => $payment->getOrderId(),
         'amount' => $this->rounder->round($payment->getAmount())->getNumber(),
+        'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
       ];
 
-      $result = $payments_api
-        ->makeProfilePayment(
-          $customer_id,
-          $remote_id,
-          $profile_payment_data,
+      try {
+        $result = $payments_api->makeLegatoTokenPayment(
+          $payment_method->getRemoteId(),
+          $legato_payment_data,
           $capture
         );
-    }
-    catch (Exception $e) {
-      throw new HardDeclineException('Could not charge the payment method. Message: ' . $e->getMessage());
-    }
+      }
+      catch (Exception $e) {
+        throw new HardDeclineException(
+          sprintf('Could not charge the payment method. Message: "%s"', $e->getMessage()),
+          0,
+          NULL,
+          $this->t(
+            'We encountered an error processing your payment method. We use a
+             secure, single-use authorization that is temporary and it might
+             have already expired. Please try adding your payment details again
+             using the "New credit card" option.'
+          )
+        );
+      }
 
+      $remote_id = $result['id'];
+    }
 
     $next_state = $capture ? 'completed' : 'authorization';
     if (!$capture) {
       $payment->setExpiresTime($this->time->getRequestTime() + self::AUTHORIZATION_EXPIRATION_PERIOD);
     }
     $payment->setState($next_state);
-    $payment->setRemoteId($result['id']);
+    $payment->setRemoteId($remote_id);
     $payment->save();
   }
 
@@ -336,35 +363,46 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
       }
     }
 
+    $owner = $payment_method->getOwner();
+
+    // Create the payment method for anonymous users. It simply stores the token
+    // as the method's remote ID since there is no API currently that allows
+    // getting the card details from the token.
+    if (!$owner || !$owner->isAuthenticated()) {
+      $this->doCreatePaymentMethodForAnonymousUser(
+        $payment_method,
+        $payment_details
+      );
+      return;
+    }
+
     // Create the actual payment method depending on new/existing customer.
     $remote_payment_method = $this->doCreatePaymentMethod(
       $payment_method,
       $payment_details
     );
-    $card = end($remote_payment_method['card']);
 
-    $payment_method->card_type = $this->mapCreditCardType($card['card_type']);
-    $payment_method->card_number = substr($card['number'], -4);
-    $payment_method->card_exp_month = $card['expiry_month'];
-    $payment_method->card_exp_year = $card['expiry_year'];
-
-    // Expiration time.
-    $expires = CreditCard::calculateExpirationTimestamp(
-      $card['expiry_month'],
-      $card['expiry_year']
-    );
-
-    // Set the remote ID.
-    $owner = $payment_method->getOwner();
+    // If the user is authenticated, we save the most recently created card ID
+    // as the remote ID.
     if ($owner && $owner->isAuthenticated()) {
+      $card = end($remote_payment_method['card']);
+
+      $payment_method->card_type = $this->mapCreditCardType($card['card_type']);
+      $payment_method->card_number = substr($card['number'], -4);
+      $payment_method->card_exp_month = $card['expiry_month'];
+      $payment_method->card_exp_year = $card['expiry_year'];
+
+      // Expiration time.
+      $expires = CreditCard::calculateExpirationTimestamp(
+        $card['expiry_month'],
+        $card['expiry_year']
+      );
+      $payment_method->setExpiresTime($expires);
+
       $remote_id = $card['card_id'];
-    }
-    else {
-      $remote_id = $remote_payment_method['customer_code'];
     }
 
     $payment_method->setRemoteId($remote_id);
-    $payment_method->setExpiresTime($expires);
     $payment_method->save();
   }
 
@@ -511,42 +549,59 @@ class CustomCheckout extends OnsitePaymentGatewayBase implements CustomCheckoutI
     /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
     $address = $payment_method->getBillingProfile()->get('address')->first();
 
-    try {
-      // Create a new customer profile.
-      $profile_create_token = [
-        'billing' => [
-          'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
-          'email_address' => !empty($owner->getEmail()) ? $owner->getEmail() : $payment_details['bambora_customer_email'],
-          'phone_number' => '1234567890',
-          'address_line1' => $address->getAddressLine1(),
-          'city' => $address->getLocality(),
-          'province' => $address->getAdministrativeArea(),
-          'postal_code' => $address->getPostalCode(),
-          'country' => $address->getCountryCode(),
-        ],
-        'token' => [
-          'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
-          'code' => $payment_details['bambora_token'],
-        ],
-        'validate' => TRUE,
-      ];
+    // For authenticated users we create a payment method by first creating a
+    // profile on Bambora.
+    if ($owner && $owner->isAuthenticated()) {
+      try {
+        // Create a new customer profile.
+        $profile_create_token = [
+          'billing' => [
+            'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
+            'email_address' => $owner->getEmail(),
+            'phone_number' => '1234567890',
+            'address_line1' => $address->getAddressLine1(),
+            'city' => $address->getLocality(),
+            'province' => $address->getAdministrativeArea(),
+            'postal_code' => $address->getPostalCode(),
+            'country' => $address->getCountryCode(),
+          ],
+          'token' => [
+            'name' => $address->getGivenName() . ' ' . $address->getFamilyName(),
+            'code' => $payment_details['bambora_token'],
+          ],
+          'validate' => TRUE,
+        ];
 
-      $customer_id = $profiles_api->createProfile($profile_create_token);
+        $customer_id = $profiles_api->createProfile($profile_create_token);
 
-      $cards = $profiles_api->getCards($customer_id);
+        $cards = $profiles_api->getCards($customer_id);
 
-      // Save the remote customer ID.
-      $owner = $payment_method->getOwner();
-      if ($owner && $owner->isAuthenticated()) {
+        // Save the remote customer ID.
         $this->setRemoteCustomerId($owner, $customer_id);
         $owner->save();
-      }
 
-      return $cards;
+        return $cards;
+      }
+      catch (Exception $e) {
+        throw new HardDeclineException('Unable to verify the credit card: ' . $e->getMessage());
+      }
     }
-    catch (Exception $e) {
-      throw new HardDeclineException('Unable to verify the credit card: ' . $e->getMessage());
-    }
+  }
+
+  /**
+   * Creates the payment method for an anonymous user.
+   *
+   * @param \Drupal\commerce_payment\Entity\PaymentMethodInterface $payment_method
+   *   The payment method.
+   * @param array $payment_details
+   *   The gateway-specific payment details.
+   */
+  protected function doCreatePaymentMethodForAnonymousUser(
+    PaymentMethodInterface $payment_method,
+    array $payment_details
+  ) {
+    $payment_method->setRemoteId($payment_details['bambora_token']);
+    $payment_method->save();
   }
 
   /**

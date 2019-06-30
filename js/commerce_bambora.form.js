@@ -33,7 +33,6 @@
         // validated. If this form reloads it's due to an error; received tokens
         // are stored in the checkout pane.
         $('#bambora_token', $form).val('');
-        $('#bambora_customer_email', $form).val('');
 
         // Payment card controller.
         var paymentCardCtrl = {
@@ -191,7 +190,6 @@
         var bamboraTokenHandler = function (token) {
           // Set the Stripe token value.
           $('#bambora_token', $form).val(token);
-          $('#bambora_customer_email', $form).val($('input#edit-contact-information-email').val());
 
           // Submit the form.
           $form.get(0).submit();
